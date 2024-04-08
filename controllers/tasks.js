@@ -1,9 +1,12 @@
+const BadRequest = require("../errors/bad-request");
+const { StatusCodes } = require("http-status-codes");
 const Task = require("../models/task");
+const NotFound = require("../errors/not-found");
 
 // get all tasks
 const getTasks = async (req, res) => {
   const tasks = await Task.find({});
-  res.status(200).json({
+  res.status(StatusCodes.OK).json({
     success: true,
     tasks,
   });
@@ -11,50 +14,66 @@ const getTasks = async (req, res) => {
 
 // create a task
 const createTask = async (req, res) => {
-  try {
-    const { name } = req.body;
-    if (!name) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Please provide a name" });
-    }
-    const task = await Task.create({ name });
-    console.log(req.body);
-    res.status(201).json({
-      success: true,
-      data: task,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error });
+  const { name } = req.body;
+  if (!name) {
+    throw new BadRequest("Please provide task name");
   }
+  const task = await Task.create({ name });
+  res.status(StatusCodes.CREATED).json({
+    success: true,
+    data: task,
+  });
 };
 
 // get a task
 const getTask = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const task = await Task.findById(id);
-    if (!task) {
-      return res
-        .status(404)
-        .json({ success: false, message: `No task with id : ${id}` });
-    }
-    res.status(200).json({ success: true, task });
-  } catch (error) {
-    console.log(error);
+  const { id } = req.params;
+  if (!id) {
+    throw new BadRequest("Please provide id");
   }
+  const task = await Task.findById(id);
+  if (!task) {
+    throw new NotFound(`No task with id : ${id}`);
+  }
+  res.status(StatusCodes.OK).json({ success: true, task });
 };
 
 // update a task
-const updateTask = (req, res) => {
+const updateTask = async (req, res) => {
   const { id } = req.params;
-  res.send(`update task with id ${id}`);
+  if (!id) {
+    throw new BadRequest("Please provide id");
+  }
+  const { name, completed } = req.body;
+  if (!name) {
+    throw new BadRequest("Please provide all required fields");
+  }
+  const task = await Task.findByIdAndUpdate(
+    id,
+    { name, completed },
+    { new: true, runValidators: true },
+  );
+  if (!task) {
+    throw new NotFound(`No task with id : ${id}`);
+  }
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Task updated successfully", task });
 };
 
 // delete a task
-const deleteTask = (req, res) => {
+const deleteTask = async (req, res) => {
   const { id } = req.params;
-  res.send(`delete task with id ${id}`);
+  if (!id) {
+    throw new BadRequest("Please provide id");
+  }
+  const task = await Task.findByIdAndDelete(id);
+  if (!task) {
+    throw new NotFound(`No task with id : ${id}`);
+  }
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Task deleted successfully" });
 };
 
 module.exports = {
